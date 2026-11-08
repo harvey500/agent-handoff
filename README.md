@@ -2,7 +2,7 @@
 
 现有 Agent 内的自然语言任务交接功能 · Natural-language handoff inside existing agents
 
-**0.2.0 · 实验预览版 / Experimental Preview**
+**0.2.1 · 实验预览版 / Experimental Preview**
 
 适合开发者试用和贡献适配器，暂不承诺稳定版兼容性。建议先用不含敏感资料的
 测试任务验收，不要把唯一一份重要工作直接交给未验证的客户端流程。
@@ -18,6 +18,20 @@ and reports back in the original source chat. The MCP owns its runtime and store
 No dashboard, separate desktop app or manually started HTTP service is required.
 
 ## 添加功能 / Add The Feature
+
+Windows x64 用户可从 [Releases](https://github.com/harvey500/agent-handoff/releases)
+下载带 Node 和依赖的 ZIP，无需预装 Node/npm。解压后双击 Install.cmd，默认
+优先安装到 D:/Apps/AgentHandoff，可输入其他空目录；安装后再运行
+Connect-Codex.cmd，确认后通过 Codex CLI 注册。不会覆盖已有同名 MCP。
+其他宿主使用生成的 mcp-config.json 按各自格式导入，不宣称自动适配所有宿主。
+
+Download the Windows x64 ZIP from Releases for a bundled Node/dependency package.
+Extract, run Install.cmd, then opt in using Connect-Codex.cmd in the installed
+directory. An existing same-name MCP is preserved. Other hosts can use the generated
+mcp-config.json as a host-specific configuration reference.
+See [installation and removal](docs/INSTALL.md), including unsigned-package limits.
+
+以下为源码安装方式 / Source installation follows:
 
 需要 Windows、Node.js 24+；当前真实适配器为 WorkBuddy AI 5.9.4。
 另有 Claude Desktop 4.4212.0 网关本地聊天实验适配器，自动发送和真实回执

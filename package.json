@@ -1,10 +1,10 @@
 {
   "name": "agent-handoff-local",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Natural-language task handoff through existing agent conversations, with MCP adapters and durable receipts.",
   "license": "MIT",
-  "files": ["cli.mjs", "src/", "skills/", "public/", "docs/", "examples/", "test/core.test.mjs", "test/service.test.mjs", "test/adapter.test.mjs", "test/mcp.test.mjs", "test/claude-history.test.mjs", "test/claude-adapter.test.mjs", "Start-Claude-Handoff.ps1", "Start-Agent-Handoff.ps1", "Stop-Agent-Handoff.ps1", "README.md", "CONTRIBUTING.md", "SECURITY.md", "LICENSE"],
+  "files": ["cli.mjs", "src/", "scripts/", "skills/", "public/", "docs/", "examples/", "test/*.test.mjs", "Install.cmd", "Uninstall.cmd", "Connect-Codex.cmd", "Disconnect-Codex.cmd", "Start-Claude-Handoff.ps1", "Start-Agent-Handoff.ps1", "Stop-Agent-Handoff.ps1", "README.md", "CONTRIBUTING.md", "SECURITY.md", "LICENSE"],
   "type": "module",
   "scripts": {
     "start": "node src/mcp.mjs",

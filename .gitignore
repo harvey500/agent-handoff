@@ -5,6 +5,11 @@ node_modules/
 .local/
 *.log
 *.pid
+dist/
+runtime/
+release-manifest.json
+install-state.json
+mcp-config.json
 # Local 0.0.1 experiment, not reusable product source
 handoff.mjs
 verify-local.mjs
