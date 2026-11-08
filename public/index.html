@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="local-token" content="__LOCAL_TOKEN__">
+  <title>Agent Handoff · 任务交接</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/lucide.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar"><div class="brand"><i data-lucide="workflow"></i><strong>Agent Handoff</strong><span class="version">0.1 · 本机版</span></div><div class="local"><span class="dot"></span>本地连接</div></header>
+  <div class="layout">
+    <aside class="sidebar">
+      <nav aria-label="主导航">
+        <button class="nav active" data-tab="workspace"><i data-lucide="arrow-right-left"></i>工作台</button>
+        <button class="nav" data-tab="history"><i data-lucide="history"></i>交接记录<span id="history-count">0</span></button>
+        <button class="nav" data-tab="adapters"><i data-lucide="plug"></i>适配器</button>
+      </nav>
+      <div class="aside-heading">客户端<button id="refresh-connection" class="icon" title="刷新连接" aria-label="刷新连接"><i data-lucide="refresh-cw"></i></button></div>
+      <div class="client-item"><span class="client-logo">W</span><div><strong>WorkBuddy AI</strong><span id="client-state">检查中</span></div><span id="client-dot" class="dot muted"></span></div>
+      <button id="connect" class="secondary connect"><i data-lucide="power"></i>连接客户端</button>
+      <p id="connection-error" class="connection-error" hidden></p>
+      <div class="aside-bottom"><i data-lucide="hard-drive"></i>本机数据 · SQLite</div>
+    </aside>
+    <main>
+      <div id="notice" role="status" hidden></div>
+      <section id="workspace" class="view">
+        <div class="page-heading"><div><span class="eyebrow">WORKSPACE</span><h1>任务交接</h1></div><button id="new-task" class="primary"><i data-lucide="plus"></i>新建任务</button></div>
+        <div class="workspace-grid">
+          <div class="work-area">
+            <section class="band"><div class="section-heading"><h2>当前任务</h2><span id="task-count" class="small muted-text">0 项</span></div><label class="field">选择任务<select id="task-select"><option value="">暂无任务</option></select></label><div id="task-detail" class="empty">暂无任务</div></section>
+            <section class="band"><div class="section-heading"><h2>目标会话</h2><button id="refresh-conversations" class="icon" title="刷新会话" aria-label="刷新会话"><i data-lucide="refresh-cw"></i></button></div>
+              <label class="search"><i data-lucide="search"></i><input id="search" type="search" placeholder="筛选会话" aria-label="筛选会话"></label>
+              <label class="new-conversation"><input type="radio" name="target" value="new" checked><i data-lucide="message-square-plus"></i><span>新建交接会话</span></label>
+              <div id="conversations" class="conversation-list"><div class="empty">会话未加载</div></div>
+              <div class="sendbar"><span id="target-status" class="small muted-text">新建会话</span><div><button id="preview" class="secondary"><i data-lucide="file-text"></i>预览</button><button id="send" class="primary"><i data-lucide="send"></i>发送交接</button></div></div>
+            </section>
+          </div>
+          <aside class="receipt-area"><div class="section-heading"><h2>交接回执</h2><i data-lucide="receipt-text"></i></div><div id="receipt" class="empty">暂无交接记录</div></aside>
+        </div>
+      </section>
+      <section id="history" class="view" hidden><div class="page-heading"><div><span class="eyebrow">HISTORY</span><h1>交接记录</h1></div><button id="refresh-history" class="icon" title="刷新记录" aria-label="刷新记录"><i data-lucide="refresh-cw"></i></button></div><div id="history-list"></div></section>
+      <section id="adapters" class="view" hidden><div class="page-heading"><div><span class="eyebrow">ADAPTERS</span><h1>适配器</h1></div></div><div id="adapter-detail"></div></section>
+    </main>
+  </div>
+  <dialog id="task-dialog"><form id="task-form"><div class="dialog-heading"><h2>新建交接任务</h2><button type="button" data-close="task-dialog" class="icon" aria-label="关闭" title="关闭"><i data-lucide="x"></i></button></div>
+    <label class="field">任务名称<input name="title" required maxlength="160"></label>
+    <label class="field">项目位置<input name="projectPath" required placeholder="D:/Projects/example"></label>
+    <label class="field">任务目标<textarea name="goal" required rows="3" maxlength="12000"></textarea></label>
+    <div class="two-fields"><label class="field">来源应用<input name="application" value="手动" required></label><label class="field">来源会话<input name="conversationId" value="manual" required></label></div>
+    <div class="two-fields"><label class="field">已完成<textarea name="completed" rows="3"></textarea></label><label class="field">待完成<textarea name="remaining" rows="3"></textarea></label></div>
+    <details><summary>约束、决定和证据</summary><label class="field">约束<textarea name="constraints" rows="2"></textarea></label><label class="field">已确认决定<textarea name="decisions" rows="2"></textarea></label><label class="field">证据与文件引用<textarea name="evidence" rows="2"></textarea></label></details>
+    <fieldset class="modes"><legend>交接范围</legend><label><input type="radio" name="mode" value="acknowledge-only" checked>仅确认收到</label><label><input type="radio" name="mode" value="continue">允许继续任务</label></fieldset>
+    <div class="dialog-actions"><button type="button" class="secondary" data-close="task-dialog">取消</button><button type="submit" class="primary">保存任务</button></div>
+  </form></dialog>
+  <dialog id="preview-dialog"><div class="dialog-heading"><h2>交接内容</h2><button data-close="preview-dialog" class="icon" aria-label="关闭" title="关闭"><i data-lucide="x"></i></button></div><pre id="preview-text"></pre></dialog>
+  <dialog id="resolve-dialog"><form id="resolve-form"><div class="dialog-heading"><h2>关闭本机回执</h2><button type="button" data-close="resolve-dialog" class="icon" aria-label="关闭" title="关闭"><i data-lucide="x"></i></button></div><label class="field">人工处理说明<textarea name="note" required minlength="4" maxlength="2000" rows="3"></textarea></label><div class="dialog-actions"><button type="button" data-close="resolve-dialog" class="secondary">取消</button><button class="primary" type="submit">记录并关闭</button></div></form></dialog>
+</body></html>

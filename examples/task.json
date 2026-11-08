@@ -1,0 +1,12 @@
+{
+  "title": "跨 Agent 任务交接原型验收",
+  "goal": "验证独立本地程序能把任务说明发送到真实 WorkBuddy 客户端的可见会话，并保存准确的接手回执。",
+  "projectPath": "D:/Projects/example",
+  "source": { "application": "Codex", "conversationId": "由来源 Agent 提供实际会话编号" },
+  "constraints": ["本次仅阅读并确认，不使用工具、不修改文件、不安装软件"],
+  "decisions": ["CLI/MCP 共用本机核心与持久回执，不需要独立 HTTP 服务；适配器分别验证"],
+  "completed": ["已完成 WorkBuddy 5.9.4 可见会话收发实验"],
+  "remaining": ["准确复述需求，指出影响接手的信息缺口"],
+  "evidence": [],
+  "mode": "acknowledge-only"
+}

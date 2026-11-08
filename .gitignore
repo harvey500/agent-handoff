@@ -1,0 +1,16 @@
+config.local.json
+state/
+evidence/
+node_modules/
+.local/
+*.log
+*.pid
+# Local 0.0.1 experiment, not reusable product source
+handoff.mjs
+verify-local.mjs
+verification-message.txt
+Open-WorkBuddy-Handoff.ps1
+test/mcp-smoke.mjs
+test/live-new.mjs
+test/local-acceptance.mjs
+test/verify-feature.mjs

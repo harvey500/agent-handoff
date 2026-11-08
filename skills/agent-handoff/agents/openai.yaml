@@ -1,0 +1,6 @@
+interface:
+  display_name: "Agent Handoff"
+  short_description: "Transfer the current task to a real agent conversation"
+  default_prompt: "Use $agent-handoff to transfer this task to WorkBuddy and report its actual response here."
+policy:
+  allow_implicit_invocation: true
