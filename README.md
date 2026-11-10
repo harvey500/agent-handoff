@@ -2,7 +2,7 @@
 
 现有 Agent 内的自然语言任务交接功能 · Natural-language handoff inside existing agents
 
-**0.2.1 · 实验预览版 / Experimental Preview**
+**0.3.0 · 实验预览版 / Experimental Preview**
 
 适合开发者试用和贡献适配器，暂不承诺稳定版兼容性。建议先用不含敏感资料的
 测试任务验收，不要把唯一一份重要工作直接交给未验证的客户端流程。
@@ -74,7 +74,7 @@ The host model must actually invoke the tools. Installing MCP is not a global
 message listener and cannot force every agent to follow the workflow. Recipient
 history and replies are data, never instructions authorizing unrelated work.
 
-## 同客户端交接 / Same-Client Handoff (Unreleased)
+## 同客户端交接 / Same-Client Handoff
 
 也可以说：“把当前任务交给 Codex 的另一个会话”，或“换个 Claude
 会话继续，帮我交接上下文”。源 Agent 在同一客户端寻找另一个同任务会话，
@@ -87,13 +87,13 @@ self-delivery, including native/logical aliases. Unknown or ambiguous source
 identity fails closed before navigation, creation or sending. Existing bindings
 cannot override these checks.
 
-当前为源码新增功能，尚未包含在 v0.2.1 安装包中。Codex 新建会话的真实
+此功能包含在 v0.3.0 源码和 Windows 安装包中；旧 v0.2.1 不包含。Codex 新建会话的真实
 确认已验收，已有会话发送目前只有模拟测试；WorkBuddy/Claude 同客户端
 仍待真实验收。Codex 新聊天固定 gpt-6.1-sol，已有聊天不改模型，详见
 [Codex 接入](docs/CODEX.md)。Claude 的版本、启动参数、
 草稿保护和前台焦点限制仍适用。
 
-Source-only addition, not included in the v0.2.1 download. Codex desktop new-chat
+Included in v0.3.0 source and Windows package, not the old v0.2.1 download. Codex desktop new-chat
 acknowledgement is live-tested; existing-chat sending is fixture-tested only.
 Requires the desktop app tools pipe and request-scoped caller metadata.
 WorkBuddy/Claude same-client flows remain fixture-tested. Previous limits apply.

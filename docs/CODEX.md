@@ -1,7 +1,7 @@
 # Codex Desktop / Codex 桌面会话交接
 
-Unreleased source feature; not included in the v0.2.1 installer.
-源码新增功能，v0.2.1 安装包尚不包含。
+Included in the v0.3.0 Windows package; not included in the old v0.2.1 installer.
+v0.3.0 安装包已包含，旧 v0.2.1 不包含。
 
 ## Connection / 连接
 

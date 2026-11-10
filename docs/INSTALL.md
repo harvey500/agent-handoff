@@ -2,7 +2,7 @@
 
 ## Windows x64 Package / Windows x64 包
 
-Download AgentHandoff-0.2.1-windows-x64.zip and SHA256SUMS.txt from the same
+Download AgentHandoff-0.3.0-windows-x64.zip and SHA256SUMS.txt from the same
 [release](https://github.com/harvey500/agent-handoff/releases). Compare the ZIP's
 SHA-256, extract it, and run Install.cmd. Node24.20.0 and locked dependencies are
 included; Node/npm and administrator rights are not required for normal use.
@@ -13,7 +13,7 @@ Install.cmd。内置 Node24.20.0 和锁定依赖，不需要预装 Node/npm 或�
 权限。这是带安装脚本的 ZIP，不是经过代码签名的 EXE/MSI 安装器。
 
 ~~~powershell
-Get-FileHash ./AgentHandoff-0.2.1-windows-x64.zip -Algorithm SHA256
+Get-FileHash ./AgentHandoff-0.3.0-windows-x64.zip -Algorithm SHA256
 ~~~
 
 Use only the official repository's release. The package is unsigned; Windows or
