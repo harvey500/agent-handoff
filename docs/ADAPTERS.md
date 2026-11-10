@@ -47,3 +47,24 @@ Claude 仅指定版本和网关本地聊天，原聊天自动发送已实测；�
 
 Extensions should supply an adapter, sanitized fixtures, a version matrix, and live test instructions.
 新增适配器应提交实现、脱敏样本、版本矩阵和真实验收步骤；维护者不需要安装所有客户端。
+
+## Same-Client Checks / 同客户端验证
+
+Codex Desktop: local app tools pipe with request-scoped caller identity and a
+read-only exact-turn delegation fallback. One new-chat acknowledge-only pass is
+live-tested on runtime 0.167.0-alpha.3.2; existing-chat send is fixture-tested.
+No separate app-server and no composer editing. See [Codex limits](CODEX.md).
+
+Codex 新建会话固定 Sol；已有会话不换模型。只支持本机桌面来源和目标，
+不保证重启后自动迁移回执，也不自动授予项目访问权限。
+
+The source adapter and actual source conversation must be identified before
+selection. Catalog rows may expose nativeId for logical/native alias checks.
+Task-scoped routing excludes the source; send checks again before any UI mutation.
+If the source is absent or ambiguous in the active account, stop rather than
+guessing from the foreground chat. No adapter can infer source intent from titles.
+
+同客户端要验证：源会话排除、同名不同聊天、逻辑编号和原生编号、自发自收
+拒绝、旧绑定指回源会话、找不到源会话时停止、新建目标、重复发送防护、
+账号切换，以及真实回复是否属于目标聊天。需要从实际宿主会话发起真实测试；
+模拟数据通过不代表客户端端到端通过，不要用直接模型 API 代替验收。

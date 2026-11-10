@@ -3,8 +3,10 @@ import path from 'node:path';
 import net from 'node:net';
 import { WorkBuddy } from './workbuddy.mjs';
 import { Claude } from './claude.mjs';
+import { Codex } from './codex.mjs';
 import { discoverWorkBuddy, launchWorkBuddy } from './discovery.mjs';
 import { taskSchema, sendSchema, formatPacket, matchingRequest, parseReply } from './contracts.mjs';
+import { sourceAdapter, conversationScope, assertDestination } from './conversation-routing.mjs';
 const stamp = () => new Date().toISOString();
 const accountKey = id => createHash('sha256').update(String(id)).digest('hex');
 const active = ['preparing', 'sending', 'pending', 'unknown', 'needs-info'];
@@ -15,12 +17,13 @@ export class HandoffService {
     this.adapters = {
       workbuddy: { discover, makeAdapter, testedVersions: ['5.9.4'], requiresEndpoint: true },
       claude: { discover: async () => ({}), makeAdapter: () => new Claude({ store }), testedVersions: ['4.4212.0'], requiresEndpoint: false },
+      codex: { discover: async () => ({}), makeAdapter: () => new Codex({ store }), testedVersions: ['0.167.0-alpha.3.2'], requiresEndpoint: false },
       ...adapters,
     };
   }
   async recipient(target = 'workbuddy') {
     const spec = this.adapters[target];
-    if (!spec || !['workbuddy','claude'].includes(target)) throw new Error('Unsupported handoff recipient.');
+    if (!spec || !['workbuddy','claude','codex'].includes(target)) throw new Error('Unsupported handoff recipient.');
     let cached = this.discoveryCache.get(target);
     if (!cached || Date.now() - cached.at > 4000) {
       cached = { at: Date.now(), value: spec.discover() }; this.discoveryCache.set(target, cached);
@@ -50,6 +53,7 @@ export class HandoffService {
   async connect(target = 'workbuddy') {
     const current = await this.connection(target);
     if (current.connected) return current;
+    if (target === 'codex') throw new Error('请从 Codex 桌面会话调用，需有本机会话工具通道；不会另起后台 Codex 冒充原聊天。 ' + current.reason);
     if (target === 'claude') throw new Error('请正常打开 Claude 网关客户端并完成登录。不会绕过调试保护或强制重启。 ' + current.reason);
     if (current.running) throw new Error(current.reason + '。请手动退出 WorkBuddy 后再连接，不会强制结束进程。');
     const server = net.createServer();
@@ -67,6 +71,7 @@ export class HandoffService {
   }
   task(input) {
     const parsed = taskSchema.parse(input);
+    sourceAdapter(parsed.source);
     if (!path.isAbsolute(parsed.projectPath)) throw new Error('项目位置必须是绝对路径');
     const serialized = JSON.stringify(parsed);
     if (Buffer.byteLength(serialized) > 50000) throw new Error('任务说明超过 50KB，请减少无关历史');
@@ -92,13 +97,19 @@ export class HandoffService {
     const { adapter, accountId } = await this.ready(target);
     const result = await adapter.list();
     const task = taskId ? this.store.get('tasks', taskId) : null;
-    const bound = taskId && this.store.binding(taskId, target + ':' + accountKey(accountId));
-    return { ...result, bound: bound || null, items: result.items.map(item => ({ ...item, bound: item.id === bound,
+    if (taskId && !task) throw new Error('任务不存在');
+    if (task) adapter.assertSource?.(task);
+    const scope = conversationScope(task, target, result);
+    const storedBound = taskId && this.store.binding(taskId, target + ':' + accountKey(accountId));
+    const bound = scope.items.some(item => item.id === storedBound) ? storedBound : null;
+    return { ...result, handoffKind: scope.kind, sourceConversationId: scope.source?.id || null,
+      bound: bound || null, items: scope.items.map(item => ({ ...item, bound: item.id === bound,
       suggested: !!task && task.title.length >= 4 && (item.title || '').includes(task.title) })) };
   }
   async open(conversationId, target = 'workbuddy') {
     if (!/^[0-9a-f-]{36}$/i.test(conversationId)) throw new Error('无效会话编号');
-    return (await this.ready(target)).adapter.open(conversationId);
+    const {adapter} = await this.ready(target);
+    return adapter.show ? adapter.show(conversationId) : adapter.open(conversationId);
   }
   preview(taskId) {
     const task = this.store.get('tasks', taskId); if (!task) throw new Error('任务不存在');
@@ -136,7 +147,8 @@ export class HandoffService {
     if(catalog.bound && catalog.items.some(c=>c.id===catalog.bound))return {action:'reuse-bound',conversationId:catalog.bound,reason:'same task and recipient account binding'};
     const tokens=[task.title,path.basename(task.projectPath),...(task.taskKey?[task.taskKey]:[])].filter(t=>t.length>=3);
     const candidates=catalog.items.map(c=>({...c,score:tokens.reduce((n,t)=>n+Number((c.title||'').toLowerCase().includes(t.toLowerCase())),0)})).filter(c=>c.score>0).sort((a,b)=>b.score-a.score);
-    return {action:'review-candidates',candidates:candidates.slice(0,8),catalog:catalog.items,truncated:catalog.truncated,
+    return {action:'review-candidates',handoffKind:catalog.handoffKind,sourceConversationId:catalog.sourceConversationId,
+      candidates:candidates.slice(0,8),catalog:catalog.items,truncated:catalog.truncated,
       reason:'Titles are hints only. Read relevant conversations and compare task identity; create new only when none matches. Ask the user only for unresolved ambiguity.'};
   }
   async transfer({taskId,conversationId,createNew=false,selectionReason,waitSeconds=15,target='workbuddy'}) {
@@ -178,14 +190,25 @@ export class HandoffService {
     const task = this.store.get('tasks', options.taskId); if (!task) throw new Error('任务不存在');
     const target=options.target;
     const { adapter, accountId } = await this.ready(target);
+    const catalog = await adapter.list();
+    adapter.assertSource?.(task);
+    const scope = conversationScope(task, target, catalog);
     const key = target + ':' + accountKey(accountId);
     let conversationId = options.conversationId || this.store.binding(task.id, key);
     if (options.createNew) conversationId = randomUUID();
     if (!conversationId) throw new Error('请选择已有聊天，或明确选择新建会话');
+    if (!options.createNew) {
+      assertDestination(scope, conversationId);
+      const matches = catalog.items.filter(item => item.id.toLowerCase() === conversationId.toLowerCase() ||
+        item.nativeId?.toLowerCase() === conversationId.toLowerCase());
+      if (!matches.length) throw new Error('目标会话不在当前账号的列表中');
+      if (matches.length !== 1) throw new Error('目标会话编号存在歧义，不发送');
+      conversationId = matches[0].id;
+    }
     const id = randomUUID();
     const handoff = { id, taskId: task.id, taskTitle: task.title, adapter: target, accountHash: accountKey(accountId),
       conversationId, createNew: options.createNew, status: 'preparing', mode: task.mode,
-      source: task.source, selectionReason:options.selectionReason||'explicit target',parentHandoffId:task.parentHandoffId,sourceMustYield: task.mode === 'continue', executionLock: 'advisory-only', createdAt: stamp(), updatedAt: stamp() };
+      source: task.source, handoffKind: scope.kind, selectionReason:options.selectionReason||'explicit target',parentHandoffId:task.parentHandoffId,sourceMustYield: task.mode === 'continue', executionLock: 'advisory-only', createdAt: stamp(), updatedAt: stamp() };
     try { this.store.insertHandoff(handoff); }
     catch (e) { if (e.code?.startsWith('ERR_SQLITE')) throw new Error('此任务有未结束的交接，请先检查原回执'); throw e; }
     this.inFlight.add(id);

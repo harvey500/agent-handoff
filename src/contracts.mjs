@@ -5,7 +5,8 @@ export const taskSchema = z.object({
   title: z.string().trim().min(1).max(160),
   goal: z.string().trim().min(1).max(12000),
   projectPath: z.string().trim().min(1).max(1000),
-  source: z.object({ application: z.string().min(1).max(80), conversationId: z.string().min(1).max(200) }).strict(),
+  source: z.object({ application: z.string().trim().min(1).max(80), conversationId: z.string().trim().min(1).max(200),
+    adapter: z.enum(['workbuddy', 'claude', 'codex']).optional() }).strict(),
   constraints: z.array(z.string().max(2000)).max(40).default([]),
   decisions: z.array(z.string().max(2000)).max(40).default([]),
   completed: z.array(z.string().max(2000)).max(40).default([]),
@@ -14,7 +15,7 @@ export const taskSchema = z.object({
   mode: z.enum(['acknowledge-only', 'continue']).default('acknowledge-only'),
 }).strict();
 export const sendSchema = z.object({
-  target: z.enum(['workbuddy','claude']).default('workbuddy'),
+  target: z.enum(['workbuddy','claude','codex']).default('workbuddy'),
   taskId: z.string().uuid(),
   conversationId: z.string().uuid().optional(),
   createNew: z.boolean().default(false),

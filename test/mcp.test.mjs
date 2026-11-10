@@ -18,6 +18,11 @@ test('MCP initializes without an HTTP service and shares durable tasks across ho
   link=await connect();assert.match(link.client.getInstructions(),/without asking them to open a separate UI/);
   const names=(await link.client.listTools()).tools.map(t=>t.name);
   assert.equal(names.length,12);for(const n of ['handoff_transfer','handoff_route','handoff_inspect_conversation','handoff_supplement'])assert.ok(names.includes(n));
+  const sameClientInput={title:'same client',goal:'continue in another chat',projectPath:dir,
+    source:{application:'WorkBuddy AI',adapter:'workbuddy',conversationId:'actual-host-chat-id'}};
+  const sameClientResult=await link.client.callTool({name:'handoff_prepare',arguments:sameClientInput});
+  assert.ok(!sameClientResult.isError);
+  assert.equal(JSON.parse(sameClientResult.content[0].text).source.adapter,'workbuddy');
   const input={title:'test task',taskKey:'stable-key',goal:'continue',projectPath:dir,source:{application:'Codex',conversationId:'test'}};
   const parse=r=>JSON.parse(r.content[0].text);
   const task=parse(await link.client.callTool({name:'handoff_prepare',arguments:input}));await link.close();
