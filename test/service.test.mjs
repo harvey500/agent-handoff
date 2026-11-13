@@ -24,7 +24,7 @@ function fixture(t) {
   };
   const service = new HandoffService(store, { discover: async () => ({ installed: true, running: true, executable: 'fake', endpoint: 'http://127.0.0.1:9238' }), makeAdapter: () => adapter });
   t.after(() => { store.close(); fs.rmSync(dir, { recursive: true, force: true }); });
-  return { service, store, conversations, task: () => service.task({ title: '任务', goal: '验证交接', projectPath: path.resolve(dir), source: { application: 'Codex', conversationId: 'source-test' } }),
+  return { service, store, adapter, conversations, task: () => service.task({ title: '任务', goal: '验证交接', projectPath: path.resolve(dir), source: { application: 'Codex', conversationId: 'source-test' } }),
     setAccount: a => account = a, loseReply: () => failAfterSend = true, decline: () => mode = 'HANDOFF_DECLINED', setMode:m=>mode=m,calls: () => calls };
 }
 test('a reply from a real target is required before acceptance', async t => {
@@ -37,6 +37,12 @@ test('lost transport response remains unknown, then recovers without a second se
   assert.equal(h.status, 'unknown');
   await assert.rejects(f.service.send({ taskId: task.id, createNew: true }), /未结束/);
   const recovered = await f.service.refresh(h.id); assert.equal(recovered.status, 'accepted'); assert.equal(f.calls(), 1);
+});
+test('an explicit undispatched adapter preflight remains failed after refresh', async t => {
+  const f=fixture(t),task=f.task();
+  f.adapter.send=async()=>{throw Object.assign(new Error('Known preflight refusal'),{deliveryAttempted:false});};
+  const h=await f.service.send({taskId:task.id,conversationId:f.conversations[0].id});
+  assert.equal(h.status,'failed');assert.equal((await f.service.refresh(h.id)).status,'failed');assert.equal(f.calls(),0);
 });
 test('account changes cannot read another account handoff', async t => {
   const f = fixture(t), task = f.task(); const h = await f.service.send({ taskId: task.id, createNew: true });

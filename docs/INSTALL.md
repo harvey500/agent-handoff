@@ -2,7 +2,7 @@
 
 ## Windows x64 Package / Windows x64 包
 
-Download AgentHandoff-0.3.0-windows-x64.zip and SHA256SUMS.txt from the same
+Download AgentHandoff-0.4.0-windows-x64.zip and SHA256SUMS.txt from the same
 [release](https://github.com/harvey500/agent-handoff/releases). Compare the ZIP's
 SHA-256, extract it, and run Install.cmd. Node24.20.0 and locked dependencies are
 included; Node/npm and administrator rights are not required for normal use.
@@ -13,7 +13,7 @@ Install.cmd。内置 Node24.20.0 和锁定依赖，不需要预装 Node/npm 或�
 权限。这是带安装脚本的 ZIP，不是经过代码签名的 EXE/MSI 安装器。
 
 ~~~powershell
-Get-FileHash ./AgentHandoff-0.3.0-windows-x64.zip -Algorithm SHA256
+Get-FileHash ./AgentHandoff-0.4.0-windows-x64.zip -Algorithm SHA256
 ~~~
 
 Use only the official repository's release. The package is unsigned; Windows or
@@ -44,6 +44,24 @@ CODEX_HOME 添加一个 MCP 条目，不覆盖同名配置。如果 PATH 中没�
 ~~~powershell
 ./runtime/node.exe ./scripts/setup.mjs connect --codex C:/Path/To/codex.exe
 ~~~
+
+For external clients to hand off to Codex, explicitly opt in on a new
+registration instead. Never set this option in another host's MCP entry:
+外部客户端需要交给 Codex 时，新注册可显式启用接收；其他宿主不要加该开关：
+
+~~~powershell
+./runtime/node.exe ./scripts/setup.mjs connect --enable-inbound --codex C:/Path/To/codex.exe
+~~~
+
+The default Connect-Codex.cmd does not enable inbound. A different existing
+registration is preserved, not upgraded silently. Disconnect that owned entry
+first at an idle point before reconnecting with different options. On reload,
+invoke a handoff tool from a real Codex chat to establish the managed owner.
+See [desktop prerequisites](DESKTOP-SETUP.md) and [limits](COMPATIBILITY.md).
+
+默认连接不开放接收，不静默升级不同的已有配置。需要改变选项时，先在空闲
+时断开该安装所属条目，再明确重连。重载后需在真实 Codex 聊天调用一次
+交接工具建立托管所有者；不保证冷启动时无需任何 Codex 调用即可接收。
 
 Reload tools or restart the host yourself when needed. Installation does not
 restart agents, change model/gateway settings, send a chat, install recipient

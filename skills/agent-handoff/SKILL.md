@@ -1,6 +1,6 @@
 ---
 name: agent-handoff
-description: Transfer the current task to WorkBuddy, Claude or another local Codex conversation when the user asks to hand off, 交给另一个 Agent, 换个会话继续, or similar. Uses the agent-handoff MCP with durable receipts. Codex new-chat acknowledgement is live-tested; Claude gateway support is experimental. Not for building another UI or manually copying history.
+description: Transfer the current task between supported local Codex, WorkBuddy, Claude gateway, Qoder and DeepSeek Harness chats when the user asks to hand off, 交给另一个 Agent or 换个会话继续. Uses the loaded agent-handoff MCP and durable receipts, not manual history copying.
 ---
 
 # Natural-Language Task Handoff / 自然语言任务交接
@@ -29,7 +29,8 @@ and call the original request complete.
    connection if login, drafts or active tasks prevent a safe operation.
    For Claude, check automation.launchReady. Missing flags require an authorized
    normal restart using Start-Claude-Handoff.ps1, never a force-kill. UIA input
-   may change focus; fully background operation is not verified. If the user
+   requires a restored window and unlocked desktop; it may change focus.
+   Fully background operation is not verified. If the user
    requires no foreground interruption, report that limitation before sending.
 2. Call handoff_prepare with context. Same source/project/taskKey reuses task
    identity. Call handoff_route. Resume an existing receipt rather than resend.
@@ -50,7 +51,7 @@ and call the original request complete.
 ## Same-Client Conversations / 同客户端会话交接
 
 For requests such as “交给 WorkBuddy 的另一个会话” or “换个 Claude 会话继续”,
-set target to that client and source.adapter to workbuddy, claude or codex. Supply the
+set target to that client and source.adapter to its real adapter. Supply the
 actual source conversation ID from the host, not a title, placeholder, or a
 currently displayed chat observed after navigation. Pass taskId to listing and
 routing; the verified source is excluded, including native/logical aliases.
@@ -67,19 +68,25 @@ chat. Local Codex only. New chats start projectless; a path does not grant
 file access. Profile/pipe changes require reconciliation. See docs/CODEX.md
 in the project repository for receipt and compatibility boundaries.
 
-Codex 新建会话确认已实测，尚不代表执行完成；WorkBuddy/Claude 同客户端
-路径仍只有模拟验证。不要声称自动复制了全部历史。
+Codex、WorkBuddy、DSH 各有同客户端不同会话确认记录；Claude、Qoder 同客户端
+尚未实测。确认不代表执行完成。不要声称自动复制了全部历史。
 
 ## Compatibility
 
-The MCP runs with the host and owns its local store. No separate web page, desktop
-shell, model account or manually started HTTP service is needed. WorkBuddy AI
-5.9.4 on Windows is verified as recipient. Claude Desktop 4.4212.0 Claude-3p
-gateway local chat has one live existing-chat automatic-send/receipt pass with
-process-only launch flags. It can take foreground focus. New-chat flow, official
-cloud profiles and other Claude versions are not live-verified.
-Other destinations need adapters.
+The development build has real cross-client ACK evidence among Codex, WorkBuddy
+5.9.4, Claude gateway 4.4212.0, Qoder desktop 0.4.9 and DSH 0.2.2-rc.1.
+Each source must load and trust its own MCP. Qoder uses an opt-in desktop
+loopback connection, not a separate CLI chat. DSH needs its native opt-in
+Cordis plugin; continue-mode requires executionReady and host approvals.
+External-to-Codex transfer requires an explicitly enabled live inbound owner.
+The managed bridge is designed to close with MCP, but this machine's live
+temporary-helper migration and host restart acceptance are still pending.
+Never claim fully unattended operation from the 20 ACKs. Claude needs a
+restored/unlocked desktop and may take focus. Official Claude cloud profiles
+and other versions are not verified. Copilot and Antigravity are not supported.
+These changes ship in v0.4.0, not the older v0.3.0 package.
 The source model must decide to invoke tools. MCP does not grant access to every
 host conversation or register a global message listener.
 
 若 MCP 尚未加载，说明需要重新加载工具；不能用摘要文件冒充已送达。
+旧进程可能保留旧模块；安全空闲时重载，不擅自打断任务或重发未知结果。

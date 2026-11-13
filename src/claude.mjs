@@ -140,7 +140,8 @@ export class Claude {
     if (this.store.get('settings', dispatchKey)) throw new Error('Claude send already reserved; reconcile the receipt or owned draft, never automatically resend.');
     await this.open(id);
     const state = await this.check(accountId), alias = this.alias(id);
-    if (state.busy || state.draftPresent) throw new Error('Claude is busy or contains an unsent draft.');
+    if (state.minimized) throw Object.assign(new Error('Claude is minimized. Restore its window before sending; no draft was changed.'), { deliveryAttempted: false });
+    if (state.busy || state.draftPresent) throw Object.assign(new Error('Claude is busy or contains an unsent draft.'), { deliveryAttempted: false });
     const uiRequest = { nativeId: alias?.nativeId || id, newChat: !!alias && !alias.nativeId, text, marker, profileRoot: state.profileRoot, accountId };
     if (!this.store.reserveSetting(dispatchKey, { phase: 'staging', marker, textHash: hash(text) })) throw new Error('Claude send was concurrently reserved; reconcile before any retry.');
     const staged = await this.ui({ ...uiRequest, action: 'stage' });
@@ -148,6 +149,7 @@ export class Claude {
     this.store.putSetting(dispatchKey, { phase: 'staged', marker, textHash: hash(text) });
     // A separate UI round trip observes the committed draft and fresh button.
     const beforeDispatch = await this.check(accountId);
+    if (beforeDispatch.minimized) throw new Error('Claude was minimized after staging; no send invoked. Restore and reconcile the owned draft.');
     if (beforeDispatch.busy || (!uiRequest.newChat && beforeDispatch.currentId !== uiRequest.nativeId) || (uiRequest.newChat && beforeDispatch.currentId)) throw new Error('Claude target changed after staging; no send invoked.');
     if (alias && !alias.nativeId) this.save(id, { ...alias, marker, phase: 'dispatching' });
     this.store.putSetting(dispatchKey, { phase: 'dispatching', marker, textHash: hash(text) });

@@ -59,6 +59,15 @@ restrictions to conceal this limitation.
 脚本发送，但不能保证你使用其他软件时完全不受打扰。状态中的
 focusMayChange=true 和 fullyBackgroundVerified=false 明确反映这个限制。
 
+Keep the Claude window restored, not minimized. Live testing found stale
+composer values while minimized even with the launch flags. The adapter now
+refuses a minimized window before staging and checks again before dispatch;
+it never restores the window automatically. A failed staging attempt can still
+leave a draft: reconcile its exact contents and receipt instead of resending.
+请保持窗口已还原。实测最小化时即使有启动参数也可能读到过期输入状态。
+适配器现会在填入前及发送前检查最小化，不自动抢焦点；暂存失败也可能留下
+草稿，必须核对准确内容和回执，不能直接重发。
+
 ## Delivery / 送达核验
 
 1. Check active profile/account, target, existing draft and busy state.
@@ -84,6 +93,15 @@ focusMayChange=true 和 fullyBackgroundVerified=false 明确反映这个限制�
   exact comparison. No probe was sent.
 - New-chat flow, official cloud accounts, other versions and completely
   background operation have not passed live conformance.
+
+2026-11-13: after authorized registration to the active gateway profile and one
+normal restart, the real Claude conversation invoked its loaded handoff MCP
+to WorkBuddy, Codex, Qoder and DSH. All four completed exact-ID ACKs were
+independently read back. See COMPATIBILITY.md for the complete directional
+matrix and minimized-window caveat. This proves ACK connectivity under those
+conditions, not actual development execution or unattended operation.
+2026-11-13 已验证 Claude 通过自身加载的 MCP 向其余四个客户端交接并取得
+准确确认；不等于实际项目执行或无人值守。完整方向及最小化限制见兼容性报告。
 
 2026-11-08 已通过原聊天自动发送和真实回执，使用用户原有 DeepSeek 渠道。
 本次只确认收到，不代表接收方完成开发。专用草稿探针未发送，已精确清理。

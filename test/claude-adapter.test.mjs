@@ -64,6 +64,20 @@ test('Claude refuses a user draft and a busy target without staging',async t=>{
  await assert.rejects(f.adapter.send(f.native,f.packet(id),'HANDOFF_ID: '+id,f.account),/busy/);
  assert.ok(!f.calls.includes('stage'));assert.ok(!f.calls.includes('dispatch'));
 });
+test('Claude refuses a minimized window before staging or reserving delivery', async t => {
+ const f=await fixture(t),id=randomUUID(),marker='HANDOFF_ID: '+id;
+ f.state.minimized=true;
+ await assert.rejects(f.adapter.send(f.native,f.packet(id),marker,f.account),/minimized/);
+ assert.ok(!f.calls.includes('stage'));assert.ok(!f.calls.includes('dispatch'));
+ assert.equal(f.store.get('settings',f.adapter.dispatchKey(f.native,marker)),null);
+});
+test('minimizing after staging preserves the draft and refuses dispatch', async t => {
+ const f=await fixture(t),id=randomUUID(),marker='HANDOFF_ID: '+id;
+ f.afterStage(state=>{state.minimized=true;return {staged:true,invokedOnce:false};});
+ await assert.rejects(f.adapter.send(f.native,f.packet(id),marker,f.account),/minimized after staging/);
+ assert.ok(!f.calls.includes('dispatch'));assert.equal(f.state.draftPresent,true);
+ assert.equal(f.store.get('settings',f.adapter.dispatchKey(f.native,marker)).phase,'staged');
+});
 test('a lost dispatch response can be reconciled without another send',async t=>{
  const f=await fixture(t),id=randomUUID(),marker='HANDOFF_ID: '+id;f.lose();
  await assert.rejects(f.adapter.send(f.native,f.packet(id),marker,f.account),/lost/);

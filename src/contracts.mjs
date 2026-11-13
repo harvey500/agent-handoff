@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import path from 'node:path';
 const newline = String.fromCharCode(10);
 export const taskSchema = z.object({
   taskKey: z.string().trim().min(1).max(160).optional(),
@@ -6,7 +7,7 @@ export const taskSchema = z.object({
   goal: z.string().trim().min(1).max(12000),
   projectPath: z.string().trim().min(1).max(1000),
   source: z.object({ application: z.string().trim().min(1).max(80), conversationId: z.string().trim().min(1).max(200),
-    adapter: z.enum(['workbuddy', 'claude', 'codex']).optional() }).strict(),
+    adapter: z.enum(['workbuddy', 'claude', 'codex', 'qoder', 'deepseek']).optional() }).strict(),
   constraints: z.array(z.string().max(2000)).max(40).default([]),
   decisions: z.array(z.string().max(2000)).max(40).default([]),
   completed: z.array(z.string().max(2000)).max(40).default([]),
@@ -14,8 +15,17 @@ export const taskSchema = z.object({
   evidence: z.array(z.string().max(2000)).max(40).default([]),
   mode: z.enum(['acknowledge-only', 'continue']).default('acknowledge-only'),
 }).strict();
+export function validateTaskInput(input) {
+  const parsed = taskSchema.parse(input);
+  if (!path.isAbsolute(parsed.projectPath)) throw new Error('项目位置必须是绝对路径');
+  const serialized = JSON.stringify(parsed);
+  if (Buffer.byteLength(serialized) > 50000) throw new Error('任务说明超过 50KB，请减少无关历史');
+  if (/-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:^|[^A-Za-z0-9_])sk-[A-Za-z0-9_-]{20,}|(?:^|[^A-Za-z0-9_])gh[pousr]_[A-Za-z0-9]{20,}/.test(serialized)) throw new Error('任务说明疑似包含密钥，请先移除');
+  parsed.projectPath = path.normalize(parsed.projectPath);
+  return parsed;
+}
 export const sendSchema = z.object({
-  target: z.enum(['workbuddy','claude','codex']).default('workbuddy'),
+  target: z.enum(['workbuddy','claude','codex','qoder','deepseek']).default('workbuddy'),
   taskId: z.string().uuid(),
   conversationId: z.string().uuid().optional(),
   createNew: z.boolean().default(false),

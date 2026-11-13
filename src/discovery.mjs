@@ -2,23 +2,29 @@ import fs from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 const exec = promisify(execFile);
-export async function discoverWorkBuddy() {
+export async function discoverWorkBuddy({ run = exec } = {}) {
   if (process.platform !== 'win32') return { installed: false, reason: 'WorkBuddy desktop adapter currently requires Windows.', processes: [] };
   const script = `$ErrorActionPreference='Stop';[Console]::OutputEncoding=[Text.UTF8Encoding]::new()
+    $listeners=@(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue)
     $apps=@(Get-CimInstance Win32_Process -Filter "Name='WorkBuddyAI.exe'" | Where-Object { $_.CommandLine -notmatch '--type=' } | ForEach-Object {
       $owner=$_.ProcessId
-      $ports=@(Get-NetTCPConnection -State Listen -OwningProcess $owner -ErrorAction SilentlyContinue | Where-Object LocalAddress -eq '127.0.0.1' | ForEach-Object {$_.LocalPort})
+      $ports=@($listeners | Where-Object { $_.OwningProcess -eq $owner -and $_.LocalAddress -eq '127.0.0.1' } | ForEach-Object {$_.LocalPort})
       [pscustomobject]@{pid=$owner;executable=$_.ExecutablePath;ports=$ports}
     })
     $paths=@($apps | ForEach-Object {$_.executable})
-    $ws=New-Object -ComObject WScript.Shell
-    foreach($base in @([Environment]::GetFolderPath('Desktop'),[Environment]::GetFolderPath('Programs'),[Environment]::GetFolderPath('CommonPrograms'))){
-      if(Test-Path -LiteralPath $base){ Get-ChildItem -LiteralPath $base -Filter '*WorkBuddy*.lnk' -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $paths+= $ws.CreateShortcut($_.FullName).TargetPath } }
-    }
     $paths+=Join-Path $env:LOCALAPPDATA 'Programs/WorkBuddyAI/WorkBuddyAI.exe'
     [pscustomobject]@{processes=$apps;paths=@($paths | Where-Object {$_ -and (Test-Path -LiteralPath $_)} | Select-Object -Unique)} | ConvertTo-Json -Depth 4 -Compress`;
-  const { stdout } = await exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 12000, maxBuffer: 32000 });
+  const { stdout } = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 12000, maxBuffer: 32000 });
   const result = JSON.parse(stdout.replace(/^﻿/, '').trim());
+  if (!result.paths.length) {
+    // Optional shortcut lookup is isolated: a host denying COM must not block running clients.
+    try {
+      const lookup = "$ErrorActionPreference='Stop';[Console]::OutputEncoding=[Text.UTF8Encoding]::new();$ws=New-Object -ComObject WScript.Shell;$paths=@();foreach($base in @([Environment]::GetFolderPath('Desktop'),[Environment]::GetFolderPath('Programs'),[Environment]::GetFolderPath('CommonPrograms'))){if(Test-Path -LiteralPath $base){Get-ChildItem -LiteralPath $base -Filter '*WorkBuddy*.lnk' -Recurse -ErrorAction SilentlyContinue | ForEach-Object {$paths+=$ws.CreateShortcut($_.FullName).TargetPath}}};ConvertTo-Json -InputObject @($paths | Where-Object {$_ -and (Test-Path -LiteralPath $_)} | Select-Object -Unique) -Compress";
+      const found = await run('powershell.exe', ['-NoProfile','-NonInteractive','-Command',lookup], {windowsHide:true,timeout:5000,maxBuffer:16000});
+      const paths = JSON.parse(found.stdout.trim());
+      if (Array.isArray(paths) && paths.every(p => typeof p === 'string')) result.paths.push(...paths);
+    } catch { }
+  }
   const configured = process.env.AGENT_HANDOFF_WORKBUDDY_EXE;
   if (configured) { await fs.access(configured); result.paths.unshift(configured); }
   let main = result.processes[0], endpoint = null;

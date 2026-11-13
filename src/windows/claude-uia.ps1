@@ -16,6 +16,7 @@ public class HandoffClaudeWindows {
  [DllImport("user32.dll")] static extern int GetClassName(IntPtr h,StringBuilder s,int n);
  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h,out uint p);
  [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h,out Rect r);
+ [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
  public static List<long> List(int id){
   var result=new List<long>();EnumWindows((h,p)=>{uint owner;GetWindowThreadProcessId(h,out owner);
    if(owner==(uint)id){var c=new StringBuilder(256);GetClassName(h,c,256);Rect r;GetWindowRect(h,out r);
@@ -94,7 +95,7 @@ $profile=AssertProfile
 $action=$request.action
 if($action -eq 'status'){
  $doc=DocumentState
- [pscustomobject]@{version=$version;executable=$selected.Process.ExecutablePath;pid=$selected.Process.ProcessId;profileRoot=$profile;url=$doc.Url;title=$doc.Name;currentId=(CurrentSession);busy=(IsBusy);draftPresent=[bool](([string](DraftValue)).Trim());automation=@{transport='windows-uia';launchReady=($missingFlags.Count -eq 0);missingLaunchFlags=$missingFlags;focusMayChange=$true;fullyBackgroundVerified=$false}}|ConvertTo-Json -Depth 4 -Compress
+ [pscustomobject]@{version=$version;executable=$selected.Process.ExecutablePath;pid=$selected.Process.ProcessId;profileRoot=$profile;url=$doc.Url;title=$doc.Name;currentId=(CurrentSession);busy=(IsBusy);draftPresent=[bool](([string](DraftValue)).Trim());minimized=[HandoffClaudeWindows]::IsIconic([IntPtr]$selected.Handle);automation=@{transport='windows-uia';launchReady=($missingFlags.Count -eq 0);missingLaunchFlags=$missingFlags;focusMayChange=$true;fullyBackgroundVerified=$false}}|ConvertTo-Json -Depth 4 -Compress
  exit
 }
 if($action -eq 'open'){
@@ -119,6 +120,7 @@ if($action -eq 'create'){
  throw 'Claude did not open a new chat'
 }
 if($action -notin @('stage','dispatch')){throw 'Unknown Claude operation'}
+if([HandoffClaudeWindows]::IsIconic([IntPtr]$selected.Handle)){throw 'Claude is minimized. Restore its window before staging or dispatch; no draft was changed and no send invoked.'}
 if($missingFlags.Count -gt 0){throw 'Claude automatic send needs the validated launch flags. Quit normally, then use Start-Claude-Handoff.ps1. No automatic restart or send was attempted.'}
 $doc=DocumentState
 if($request.newChat){if(CurrentSession){throw 'Expected a new Claude chat'}}elseif((CurrentSession) -ne $request.nativeId){throw 'Claude active conversation changed'}

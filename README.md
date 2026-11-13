@@ -2,7 +2,21 @@
 
 现有 Agent 内的自然语言任务交接功能 · Natural-language handoff inside existing agents
 
-**0.3.0 · 实验预览版 / Experimental Preview**
+**0.4.0 · 实验预览版 / Experimental Preview**
+
+2026-11-13 本地验收已取得 Codex、WorkBuddy、Claude 网关、Qoder、DSH
+五个客户端全部 20 个跨客户端方向的真实确认。四种外部来源客户端已分别
+通过各自加载的 MCP 发起测试，不靠 Codex 代跑脚本。确认不等于任务完成，
+也不等于重启后无人值守。Claude 仍要求非最小化、未锁屏；Codex 接收测试
+仍使用临时桥接，托管迁移待重载验收。详见
+[兼容性与方向验证 / Compatibility](docs/COMPATIBILITY.md)。
+
+This build has local ACK evidence for all 20 cross-client
+directions among five clients. External source hosts invoked their own loaded
+MCP tools. ACK is not task completion or unattended restart readiness. Claude
+needs a restored, unlocked desktop; Codex inbound still uses a temporary helper
+pending managed-owner migration. These changes are included in v0.4.0, not the
+older v0.3.0 ZIP. Read the runtime requirements before enabling a recipient.
 
 适合开发者试用和贡献适配器，暂不承诺稳定版兼容性。建议先用不含敏感资料的
 测试任务验收，不要把唯一一份重要工作直接交给未验证的客户端流程。
@@ -33,17 +47,19 @@ See [installation and removal](docs/INSTALL.md), including unsigned-package limi
 
 以下为源码安装方式 / Source installation follows:
 
-需要 Windows、Node.js 24+；当前真实适配器为 WorkBuddy AI 5.9.4。
-另有 Claude Desktop 4.4212.0 网关本地聊天实验适配器，自动发送和真实回执
-已通过一次本机验收，但写入可能改变前台焦点，不是完全无打扰的后台控制。
+需要 Windows、Node.js 24+；已测试 WorkBuddy AI 5.9.4、Claude 网关
+4.4212.0、Qoder 桌面 0.4.9、DSH 0.2.2-rc.1 和本机 Codex。
+Claude 写入可能改变前台焦点，不是完全无打扰的后台控制。
 须按 [Claude 接入](docs/CLAUDE.md) 使用本次进程的渲染参数；不修改安装包、
 账号、模型或代理配置。
 
-Windows and Node.js 24+ are required. WorkBuddy AI 5.9.4 is live-tested.
-Claude Desktop 4.4212.0 gateway local chat has an experimental adapter: one
-automatic existing-chat send and real acknowledgement passed locally. UIA input
-can change foreground focus, so fully background operation is not verified.
+Windows and Node.js 24+ are required. See the compatibility page for tested
+desktop versions and native integration prerequisites. Claude gateway UIA input
+can change foreground focus; fully background operation is not verified.
 See [Claude integration](docs/CLAUDE.md) for its required process-only launch flags.
+See [desktop setup](docs/DESKTOP-SETUP.md) for Qoder, DSH, shared data and
+explicit Codex inbound registration. These prerequisites are not auto-installed.
+Qoder、DSH、共享数据目录和 Codex 可选接收配置见桌面接入说明，不自动安装。
 
 从项目目录执行：
 
@@ -87,16 +103,16 @@ self-delivery, including native/logical aliases. Unknown or ambiguous source
 identity fails closed before navigation, creation or sending. Existing bindings
 cannot override these checks.
 
-此功能包含在 v0.3.0 源码和 Windows 安装包中；旧 v0.2.1 不包含。Codex 新建会话的真实
-确认已验收，已有会话发送目前只有模拟测试；WorkBuddy/Claude 同客户端
-仍待真实验收。Codex 新聊天固定 gpt-6.1-sol，已有聊天不改模型，详见
+基础同客户端功能包含在 v0.3.0，旧 v0.2.1 不包含。当前开发版分别测试过
+Codex、WorkBuddy、DSH 的同客户端不同会话确认；Claude、Qoder 同客户端
+未实测。20 个跨客户端方向不包含这些对角线测试。
+Codex 新聊天固定 gpt-6.1-sol，已有聊天不改模型，详见
 [Codex 接入](docs/CODEX.md)。Claude 的版本、启动参数、
 草稿保护和前台焦点限制仍适用。
 
-Included in v0.3.0 source and Windows package, not the old v0.2.1 download. Codex desktop new-chat
-acknowledgement is live-tested; existing-chat sending is fixture-tested only.
-Requires the desktop app tools pipe and request-scoped caller metadata.
-WorkBuddy/Claude same-client flows remain fixture-tested. Previous limits apply.
+The basic same-client flow shipped in v0.3.0, not v0.2.1. The development build
+has separate Codex, WorkBuddy and DSH same-client ACK tests; Claude and Qoder
+same-client flows are not live-tested. Prior runtime limits still apply.
 
 ## CLI
 
@@ -118,7 +134,7 @@ Set a real project path and source conversation before using the example.
 ## MCP
 
 stdio 入口：`node /absolute/path/to/agent-handoff/src/mcp.mjs`。
-12 个工具，均有 `handoff_` 前缀：status、connect、list_conversations、
+13 个工具，均有 `handoff_` 前缀：status、doctor、connect、list_conversations、
 prepare、route、inspect_conversation、preview、transfer、send、check、
 supplement、open。CLI 与 MCP 直接调用核心程序，共用 SQLite 记录。
 
@@ -151,7 +167,7 @@ split replies, staging failure, target changes and atomic dispatch reservations.
   `AGENT_HANDOFF_HOME` 指定同一绝对目录；各个 MCP 宿主和 CLI 必须一致。
 - HTTP、CDP 仅绑定 127.0.0.1；CDP 有客户端控制能力，不可映射公网。
 - 不修改 WorkBuddy 安装包、不直接写聊天数据库；内部 SDK 非官方外部接口。
-- 已验证 WorkBuddy AI 5.9.4；Claude 4.4212.0 仅网关本地聊天的指定流程通过，
+- 已验证的具体版本见兼容性矩阵；Claude 4.4212.0 仅网关本地聊天通过，
   其全新聊天、官方云端账号和完全无前台干扰的发送尚未真实验收。
 - 任务 ID/账号绑定可复用；标题仅候选，未实现任意会话的语义自动匹配。
 - 来源 Agent 可读取候选正文并判断是否同任务；程序本身不假装具备独立语义判断。
@@ -162,6 +178,8 @@ split replies, staging failure, target changes and atomic dispatch reservations.
 The MCP ends with the host's transport. No always-on HTTP daemon, scheduled task
 or desktop application is required. WorkBuddy stays open. No API gateway or model
 configuration is changed. Data is local but not encrypted at rest.
+External-to-Codex delivery requires an explicitly enabled live inbound owner;
+the current machine's temporary-helper migration remains pending.
 Claude also stays open; its experimental launcher is opt-in and never stops an
 existing process. Required flags are checked before automatic staging/dispatch.
 

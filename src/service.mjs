@@ -4,9 +4,13 @@ import net from 'node:net';
 import { WorkBuddy } from './workbuddy.mjs';
 import { Claude } from './claude.mjs';
 import { Codex } from './codex.mjs';
+import { CodexInbound } from './codex-inbound.mjs';
+import { DeepSeek } from './deepseek.mjs';
+import { QoderDesktop, discoverQoderDesktop } from './qoder-desktop.mjs';
 import { discoverWorkBuddy, launchWorkBuddy } from './discovery.mjs';
-import { taskSchema, sendSchema, formatPacket, matchingRequest, parseReply } from './contracts.mjs';
+import { taskSchema, validateTaskInput, sendSchema, formatPacket, matchingRequest, parseReply } from './contracts.mjs';
 import { sourceAdapter, conversationScope, assertDestination } from './conversation-routing.mjs';
+import { adapterCapabilities, desktopCapabilities, requireCapability } from './capabilities.mjs';
 const stamp = () => new Date().toISOString();
 const accountKey = id => createHash('sha256').update(String(id)).digest('hex');
 const active = ['preparing', 'sending', 'pending', 'unknown', 'needs-info'];
@@ -15,46 +19,56 @@ export class HandoffService {
   constructor(store, { discover = discoverWorkBuddy, makeAdapter = c => new WorkBuddy(c), adapters = {} } = {}) {
     this.store = store; this.inFlight = new Set(); this.discoveryCache = new Map();
     this.adapters = {
-      workbuddy: { discover, makeAdapter, testedVersions: ['5.9.4'], requiresEndpoint: true },
-      claude: { discover: async () => ({}), makeAdapter: () => new Claude({ store }), testedVersions: ['4.4212.0'], requiresEndpoint: false },
-      codex: { discover: async () => ({}), makeAdapter: () => new Codex({ store }), testedVersions: ['0.167.0-alpha.3.2'], requiresEndpoint: false },
-      ...adapters,
+      workbuddy: { discover, makeAdapter, capabilities: desktopCapabilities, testedVersions: ['5.9.4'], requiresEndpoint: true },
+      claude: { discover: async () => ({}), makeAdapter: () => new Claude({ store }), capabilities: desktopCapabilities, testedVersions: ['4.4212.0'], requiresEndpoint: false },
+      codex: { discover: async () => ({}), makeAdapter: () => process.env.CODEX_APP_TOOLS_PIPE_PATH ? new Codex({ store }) : new CodexInbound(), capabilities: desktopCapabilities, testedVersions: ['0.167.0-alpha.4.1'], requiresEndpoint: false },
+      qoder: { discover: discoverQoderDesktop, makeAdapter: c => new QoderDesktop({ ...c, store }), capabilities: desktopCapabilities, testedVersions: ['0.4.9'], requiresEndpoint: true },
+      deepseek: { discover: async () => ({}), makeAdapter: () => new DeepSeek(), capabilities: { list: true, read: true, create: true, send: true, replies: true, activate: true }, testedVersions: ['0.2.2-rc.1'], requiresEndpoint: false },
     };
+    for (const [name, spec] of Object.entries(adapters)) this.adapters[name] = { ...this.adapters[name], ...spec };
   }
   async recipient(target = 'workbuddy') {
     const spec = this.adapters[target];
-    if (!spec || !['workbuddy','claude','codex'].includes(target)) throw new Error('Unsupported handoff recipient.');
+    if (!spec || !['workbuddy','claude','codex','qoder','deepseek'].includes(target)) throw new Error('Unsupported handoff recipient.');
     let cached = this.discoveryCache.get(target);
     if (!cached || Date.now() - cached.at > 4000) {
       cached = { at: Date.now(), value: spec.discover() }; this.discoveryCache.set(target, cached);
     }
-    const found = await cached.value;
+    let found;
+    try { found = await cached.value; }
+    catch (error) { this.discoveryCache.delete(target); return { status: { adapter: target, connected: false, capabilities: adapterCapabilities(spec.capabilities), reason: error.message } }; }
     const base = { ...found, adapter: target, testedVersions: spec.testedVersions,
-      capabilities: { list: true, read: true, create: true, openVisible: true, send: true, replies: true, sourceCapture: false }, connected: false };
+      capabilities: adapterCapabilities(spec.capabilities), connected: false };
     if (spec.requiresEndpoint && (!found.endpoint || !found.executable)) return { status: { ...base, reason: found.running ? '客户端运行中，尚未启用本地连接' : '客户端未连接' } };
     try {
       const adapter = spec.makeAdapter({ ...found, testedVersion: spec.testedVersions[0] });
       const status = await adapter.status();
+      if (status.connected === false) return { status: { ...base, connected: false, reason: status.reason || 'Recipient readiness is unverified.', support: status.support, currentId: status.currentId || null } };
       if (!status.accountId) return { status: { ...base, reason: '请先在目标客户端登录账号' } };
       return { adapter, accountId: status.accountId, status: { ...base, connected: true, running: true, version: status.version,
         executable: status.executable || found.executable, currentId: status.currentId, support: status.support,
         ...(status.automation ? { automation: status.automation } : {}),
-        busy: status.busy, draftPresent: status.draftPresent, reason: null } };
+        ...(status.executionReady === true ? { executionReady: true } : {}),
+        busy: status.busy, draftPresent: status.draftPresent,
+        ...(typeof status.minimized === 'boolean' ? { minimized: status.minimized } : {}), reason: null } };
     } catch (e) { return { status: { ...base, reason: e.message } }; }
   }
   async connection(target = 'workbuddy') {
     return (await this.recipient(target)).status;
   }
-  async ready(target = 'workbuddy') {
+  async ready(target = 'workbuddy', operation) {
     const context = await this.recipient(target);
     if (!context.status.connected) throw new Error(context.status.reason);
+    if (operation) requireCapability(context.status, operation);
     return context;
   }
   async connect(target = 'workbuddy') {
     const current = await this.connection(target);
     if (current.connected) return current;
-    if (target === 'codex') throw new Error('请从 Codex 桌面会话调用，需有本机会话工具通道；不会另起后台 Codex 冒充原聊天。 ' + current.reason);
+    if (target === 'codex') throw new Error('Codex requires its native caller context or an explicitly enabled live Codex inbound owner. No caller identity is copied. ' + current.reason);
+    if (target === 'deepseek') throw new Error('Load the opt-in DSH bridge through its native profile plugin loader and inspect readiness. ' + current.reason);
     if (target === 'claude') throw new Error('请正常打开 Claude 网关客户端并完成登录。不会绕过调试保护或强制重启。 ' + current.reason);
+    if (target === 'qoder') throw new Error('Qoder desktop requires its opt-in loopback connection. A separate CLI session does not enable desktop handoff. ' + current.reason);
     if (current.running) throw new Error(current.reason + '。请手动退出 WorkBuddy 后再连接，不会强制结束进程。');
     const server = net.createServer();
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
@@ -70,12 +84,8 @@ export class HandoffService {
     throw new Error('客户端已启动，尚未完成连接。请检查登录页面后刷新。');
   }
   task(input) {
-    const parsed = taskSchema.parse(input);
+    const parsed = validateTaskInput(input);
     sourceAdapter(parsed.source);
-    if (!path.isAbsolute(parsed.projectPath)) throw new Error('项目位置必须是绝对路径');
-    const serialized = JSON.stringify(parsed);
-    if (Buffer.byteLength(serialized) > 50000) throw new Error('任务说明超过 50KB，请减少无关历史');
-    if (/-----BEGIN [A-Z ]*PRIVATE KEY-----|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}/.test(serialized)) throw new Error('任务说明疑似包含密钥，请先移除');
     const projectPath = path.normalize(parsed.projectPath);
     parsed.projectPath = projectPath;
     const samePath = p => process.platform === 'win32' ? p.toLowerCase() : p;
@@ -94,7 +104,7 @@ export class HandoffService {
     return this.store.putTask(next);
   }
   async conversations(taskId, target = 'workbuddy') {
-    const { adapter, accountId } = await this.ready(target);
+    const { adapter, accountId } = await this.ready(target, 'list');
     const result = await adapter.list();
     const task = taskId ? this.store.get('tasks', taskId) : null;
     if (taskId && !task) throw new Error('任务不存在');
@@ -108,7 +118,7 @@ export class HandoffService {
   }
   async open(conversationId, target = 'workbuddy') {
     if (!/^[0-9a-f-]{36}$/i.test(conversationId)) throw new Error('无效会话编号');
-    const {adapter} = await this.ready(target);
+    const {adapter} = await this.ready(target, 'openVisible');
     return adapter.show ? adapter.show(conversationId) : adapter.open(conversationId);
   }
   preview(taskId) {
@@ -118,7 +128,8 @@ export class HandoffService {
   async inspect(conversationId, maxChars = 12000, target = 'workbuddy') {
     if (!/^[0-9a-f-]{36}$/i.test(conversationId)) throw new Error('无效会话编号');
     if(!Number.isInteger(maxChars)||maxChars<1000||maxChars>20000)throw new Error('读取范围必须是 1000 到 20000 字符');
-    const { adapter, accountId } = await this.ready(target);
+    const { adapter, accountId, status } = await this.ready(target, 'read');
+    requireCapability(status, 'list');
     const list = await adapter.list();
     if (!list.items.some(c=>c.id===conversationId)) throw new Error('目标会话不在当前账号列表');
     const history = await adapter.read(conversationId, accountId);
@@ -189,7 +200,10 @@ export class HandoffService {
     const options = sendSchema.parse(input);
     const task = this.store.get('tasks', options.taskId); if (!task) throw new Error('任务不存在');
     const target=options.target;
-    const { adapter, accountId } = await this.ready(target);
+    const { adapter, accountId, status } = await this.ready(target, 'send');
+    if (target === 'deepseek' && task.mode !== 'acknowledge-only' && !status.executionReady) throw new Error('DSH is limited to acknowledgement tests until its durable native bridge is loaded.');
+    for (const operation of ['list', 'read', 'replies', 'activate']) requireCapability(status, operation);
+    if (options.createNew) requireCapability(status, 'create');
     const catalog = await adapter.list();
     adapter.assertSource?.(task);
     const scope = conversationScope(task, target, catalog);
@@ -205,6 +219,7 @@ export class HandoffService {
       if (matches.length !== 1) throw new Error('目标会话编号存在歧义，不发送');
       conversationId = matches[0].id;
     }
+    await adapter.authorize?.(task, { ...options, conversationId });
     const id = randomUUID();
     const handoff = { id, taskId: task.id, taskTitle: task.title, adapter: target, accountHash: accountKey(accountId),
       conversationId, createNew: options.createNew, status: 'preparing', mode: task.mode,
@@ -217,6 +232,10 @@ export class HandoffService {
       if (options.createNew) await adapter.create(conversationId, task, accountId);
       else { const list = await adapter.list(); if (!list.items.some(c => c.id === conversationId)) throw new Error('目标会话不在当前账号的列表中'); }
       await adapter.open(conversationId);
+      if (['deepseek','qoder'].includes(target)) {
+        const history = await adapter.read(conversationId, accountId);
+        if (history.state !== 'idle') throw new Error('Target is busy; no dispatch was attempted.');
+      }
       handoff.status = 'sending'; handoff.updatedAt = stamp(); this.store.updateHandoff(handoff);
       dispatchStarted = true;
       const transport = await adapter.send(conversationId, formatPacket(task, id), 'HANDOFF_ID: ' + id, accountId, true);
@@ -225,14 +244,14 @@ export class HandoffService {
       this.store.bind(task.id, key, conversationId);
       return await this.refresh(id);
     } catch (e) {
-      handoff.status = dispatchStarted ? 'unknown' : 'failed'; handoff.error = e.message; handoff.deliveryError = e.message; handoff.updatedAt = stamp();
+      handoff.status = dispatchStarted && e.deliveryAttempted !== false ? 'unknown' : 'failed'; handoff.error = e.message; handoff.deliveryError = e.message; handoff.updatedAt = stamp();
       return this.store.updateHandoff(handoff);
     } finally { this.inFlight.delete(id); }
   }
   async refresh(id) {
     const h = this.store.get('handoffs', id); if (!h) throw new Error('交接记录不存在');
     if (h.status === 'closed') return h;
-    const { adapter, accountId } = await this.ready(h.adapter || 'workbuddy');
+    const { adapter, accountId } = await this.ready(h.adapter || 'workbuddy', 'read');
     if (h.accountHash !== accountKey(accountId)) throw new Error('目标账号与交接记录不一致');
     const history = await adapter.read(h.conversationId, accountId);
     const request = matchingRequest(history.requests, id);

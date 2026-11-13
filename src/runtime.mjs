@@ -1,11 +1,13 @@
 import { Store } from './store.mjs';
 import { HandoffService } from './service.mjs';
 import { dataRoot } from './paths.mjs';
+import { diagnose } from './diagnostics.mjs';
 export function createRuntime(directory = dataRoot, options) {
   const store = new Store(directory);
   const service = new HandoffService(store, options);
   const routes = {
     connection: b => service.connection(b.target),
+    doctor: () => diagnose(service),
     connect: b => service.connect(b.target),
     tasks: b => service.task(b),
     state: () => ({tasks:store.list('tasks'),handoffs:store.list('handoffs')}),

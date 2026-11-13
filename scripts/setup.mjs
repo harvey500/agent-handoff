@@ -28,8 +28,9 @@ try {
     if(state.registration&&(state.registration.home!==home||state.registration.name!==name))throw new Error('Different CODEX_HOME or server name; preserve the existing registration');
     if(interactive && !/^(y|yes)$/i.test(await prompt.question(operation+' Codex MCP in '+home+'? [y/N] / 确认: ')))throw new Error('Cancelled; no changes');
     const run=argv=>spawnSync(option('--codex')||'codex',argv,{encoding:'utf8',windowsHide:true,timeout:25000,env:process.env});
-    const result=configureCodex(root,operation,run,name);
-    state.registration=operation==='connect'?{home,name}:null;
+    const codexInbound=state.registration?.codexInbound===true || operation==='connect'&&args.includes('--enable-inbound');
+    const result=configureCodex(root,operation,run,name,{codexInbound});
+    state.registration=operation==='connect'?{home,name,codexInbound}:null;
     await fs.writeFile(statePath,JSON.stringify(state));
     console.log(JSON.stringify(result));console.log('Reload MCP tools in the host. / 请重新加载宿主 MCP 工具。');
   } else if(operation==='uninstall'){

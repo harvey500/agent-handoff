@@ -19,6 +19,19 @@ test('release installation verifies files and produces absolute host config',asy
  const config=JSON.parse(await fs.readFile(result.config));assert.deepEqual(config.mcpServers['agent-handoff'],hostConfig(f.destination));
  assert.equal(await fs.readFile(path.join(f.destination,'src/mcp.mjs'),'utf8'),'// fixture');
 });
+test('Codex inbound registration is explicit and is preserved and verified during disconnect',()=>{
+ const root=path.resolve('inbound app'),calls=[];let rows=[];
+ const config=hostConfig(root,{codexInbound:true});
+ assert.equal(hostConfig(root).env.AGENT_HANDOFF_CODEX_INBOUND,undefined);
+ const run=argv=>{calls.push(argv);if(argv[1]==='list')return{status:0,stdout:JSON.stringify(rows)};
+  if(argv[1]==='add')rows.push({name:argv[2],transport:{type:'stdio',...config}});
+  if(argv[1]==='remove')rows=rows.filter(r=>r.name!==argv[2]);return{status:0};};
+ assert.equal(configureCodex(root,'connect',run,'agent-handoff',{codexInbound:true}).changed,true);
+ assert.ok(calls.find(c=>c[1]==='add').includes('AGENT_HANDOFF_CODEX_INBOUND=1'));
+ assert.throws(()=>configureCodex(root,'disconnect',run),/preserving/);
+ assert.equal(configureCodex(root,'disconnect',run,'agent-handoff',{codexInbound:true}).changed,true);
+ assert.equal(rows.length,0);
+});
 test('existing destinations and damaged payloads are refused before writing',async t=>{
  const f=await fixture(t);await fs.mkdir(f.destination);await fs.writeFile(path.join(f.destination,'keep'),'user');
  await assert.rejects(installAt(f.source,f.destination),/already exists/);

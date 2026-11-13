@@ -1,0 +1,31 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID,createHash } from 'node:crypto';
+import { inboundOperations } from '../src/codex-inbound.mjs';
+import { formatPacket,taskSchema } from '../src/contracts.mjs';
+test('Codex inbound exposes only authorized packets and cannot forward arbitrary app tools',async()=>{
+ const settings=new Map(),calls=[];
+ const store={get:(_,id)=>settings.get(id),putSetting:(id,v)=>settings.set(id,v),reserveSetting:(id,v)=>{if(settings.has(id))return false;settings.set(id,v);return true;}};
+ const adapter={create:async(...a)=>calls.push(a),send:async(...a)=>calls.push(a)};
+ const run=inboundOperations(adapter,store),task={...taskSchema.parse({title:'test',goal:'confirm',projectPath:process.cwd(),source:{application:'WorkBuddy',adapter:'workbuddy',conversationId:randomUUID()}}),id:randomUUID()},id=randomUUID(),handoffId=randomUUID();
+ await assert.rejects(run('tools/call',{}),/Unsupported/);
+ await assert.rejects(run('create',{id,taskId:task.id}),/grant/);
+ await run('authorize',{task,createNew:true});
+ await run('create',{id,taskId:task.id});
+ await assert.rejects(run('create',{id,taskId:task.id}),/reserved/);
+ await assert.rejects(run('send',{id,taskId:task.id,handoffId,textHash:'modified'}),/differs/);
+ const text=formatPacket(task,handoffId),textHash=createHash('sha256').update(text).digest('hex');
+ await run('send',{id,taskId:task.id,handoffId,textHash});
+ assert.equal(calls.length,2);assert.equal(calls[1][1],text);assert.equal(calls[1][1].includes('WorkBuddy'),true);
+ await assert.rejects(run('authorize',{task:{...task,goal:'change'},createNew:true}),/replaced/);
+});
+test('Codex inbound applies source, secret and byte-size validation before persisting a grant', async () => {
+ const writes=[];
+ const run=inboundOperations({}, {get:()=>null,putSetting:(...args)=>writes.push(args)});
+ const task={...taskSchema.parse({title:'test',goal:'confirm',projectPath:process.cwd(),source:{application:'WorkBuddy',adapter:'workbuddy',conversationId:randomUUID()}}),id:randomUUID()};
+ await assert.rejects(run('authorize',{task:{...task,goal:'sk-'+ 'x'.repeat(25)},createNew:true}),/密钥/);
+ await assert.rejects(run('authorize',{task:{...task,constraints:Array(30).fill('中'.repeat(1900))},createNew:true}),/50KB/);
+ await assert.rejects(run('authorize',{task:{...task,source:{...task.source,application:'Claude'}},createNew:true}),/disagree/);
+ await assert.rejects(run('authorize',{task:{...task,projectPath:'relative'},createNew:true}),/绝对路径/);
+ assert.equal(writes.length,0);
+});

@@ -2,6 +2,8 @@ const names = new Map([
   ['workbuddy', 'workbuddy'], ['workbuddy ai', 'workbuddy'],
   ['claude', 'claude'], ['claude desktop', 'claude'],
   ['codex', 'codex'], ['codex desktop', 'codex'],
+  ['qoder', 'qoder'], ['qoder ide', 'qoder'], ['qoder cli', 'qoder'],
+  ['deepseek', 'deepseek'], ['deepseek harness', 'deepseek'], ['dsh', 'deepseek'],
 ]);
 const identity = value => String(value || '').toLowerCase().replace(/^local_/, '');
 export function sourceAdapter(source) {

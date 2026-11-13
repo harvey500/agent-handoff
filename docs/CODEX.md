@@ -52,11 +52,14 @@ isolation or restart migration from this local identity.
 
 ## Verification / 验证
 
-On 2026-11-10, one user-authorized new local Codex chat received the packet and
-returned a matching acknowledge-only acceptance. This first test inherited
-Astra before the user chose Sol. Sol selection is now explicit and tested with
-fixtures, not another live model request. Runtime: 0.167.0-alpha.3.2. Other
-versions require compatibility checks. Existing-chat send is fixture-tested.
+The published v0.3.0 round trip included one authorized Sol-only new-chat ACK.
+The 2026-11-13 local development tests also received four external-source
+handoffs in an existing dedicated Codex chat on 0.167.0-alpha.4.1, with exact
+completed ACKs. Those inbound tests used an authorized temporary private
+helper. The managed opt-in is configured but not reloaded in the live host;
+see [current compatibility](COMPATIBILITY.md) for migration and runtime limits.
 
-新建聊天到真实确认已实测，不代表实际执行完成。已有聊天发送、项目执行权限、
-跨版本和桌面重启迁移尚未真实验收。修正模型选择后没有再消耗测试额度。
+v0.3.0 下载回归已做过 Sol 新会话确认。本地开发版后续也在已有专用 Codex
+会话收到四种外部来源交接并准确确认。接收测试使用授权临时桥接，托管开关
+虽已写入，真实宿主尚未重载验收。确认不代表实际工作完成；桌面通道变化后
+的旧回执迁移、项目执行权限和重启后恢复仍不能据此认定通过。

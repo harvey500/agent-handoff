@@ -43,8 +43,9 @@ export async function verifyPayload(root) {
   }
   return manifest;
 }
-export function hostConfig(root) {
-  return {command: path.join(root, 'runtime', 'node.exe'), args: [path.join(root, 'src', 'mcp.mjs')], env: {AGENT_HANDOFF_HOME: path.join(root, '.local')}};
+export function hostConfig(root, { codexInbound = false } = {}) {
+  return {command: path.join(root, 'runtime', 'node.exe'), args: [path.join(root, 'src', 'mcp.mjs')],
+    env: {AGENT_HANDOFF_HOME: path.join(root, '.local'), ...(codexInbound ? {AGENT_HANDOFF_CODEX_INBOUND: '1'} : {})}};
 }
 export async function installAt(source, destination) {
   source = path.resolve(source); destination = path.resolve(destination);
@@ -69,18 +70,20 @@ export async function installAt(source, destination) {
 export function sameRegistration(actual, expected) {
   const t = actual?.transport;
   const same = (a,b) => typeof a === 'string' && typeof b === 'string' && path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
-  return t?.type === 'stdio' && same(t.command, expected.command) && Array.isArray(t.args) && t.args.length === 1 && same(t.args[0],expected.args[0]) && same(t.env?.AGENT_HANDOFF_HOME,expected.env.AGENT_HANDOFF_HOME);
+  return t?.type === 'stdio' && same(t.command, expected.command) && Array.isArray(t.args) && t.args.length === 1 && same(t.args[0],expected.args[0]) && same(t.env?.AGENT_HANDOFF_HOME,expected.env.AGENT_HANDOFF_HOME) &&
+    t.env?.AGENT_HANDOFF_CODEX_INBOUND === expected.env.AGENT_HANDOFF_CODEX_INBOUND;
 }
-export function configureCodex(root, operation, run, name = 'agent-handoff') {
+export function configureCodex(root, operation, run, name = 'agent-handoff', options = {}) {
   if (!/^[a-zA-Z0-9_-]{1,80}$/.test(name)) throw new Error('Invalid MCP name');
   const listed = run(['mcp','list','--json']);
   if (listed.status !== 0) throw new Error('Cannot inspect Codex MCP settings; no changes made');
   const rows = JSON.parse(listed.stdout);
   if (!Array.isArray(rows)) throw new Error('Unexpected Codex configuration format');
-  const old = rows.find(r => r.name === name), expected = hostConfig(root);
+  const old = rows.find(r => r.name === name), expected = hostConfig(root, options);
   if (old && !sameRegistration(old, expected)) throw new Error('A different MCP entry already uses this name; preserving it');
   if (operation === 'connect' && old || operation === 'disconnect' && !old) return {changed:false};
-  const result = run(operation === 'connect' ? ['mcp','add',name,'--env','AGENT_HANDOFF_HOME='+expected.env.AGENT_HANDOFF_HOME,'--',expected.command,...expected.args] : ['mcp','remove',name]);
+  const environment = Object.entries(expected.env).flatMap(([key,value]) => ['--env',key+'='+value]);
+  const result = run(operation === 'connect' ? ['mcp','add',name,...environment,'--',expected.command,...expected.args] : ['mcp','remove',name]);
   if (result.status !== 0) throw new Error('Codex configuration command failed; inspect settings before retrying');
   const after = run(['mcp','list','--json']);
   if (after.status !== 0) throw new Error('Unable to verify Codex configuration');
