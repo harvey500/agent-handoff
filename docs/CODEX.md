@@ -11,6 +11,13 @@ uses bounded length-prefixed JSON-RPC frames. This desktop integration is not a
 public stable API guarantee. No second app-server, model API substitution,
 shared TCP listener, UI injection or chat-database write is used.
 
+Since v0.4.1, string and object status forms are normalized: idle/notLoaded
+are eligible for the final send checks; active is busy; errors and unknown
+states fail closed. Read-only rollout lookup uses native Windows real paths
+for junction and extended-length path compatibility without relaxing containment.
+v0.4.1 兼容字符串与对象状态，未加载不再误判忙碌；异常和未知状态仍拒绝发送。
+历史路径使用 Windows 原生解析，兼容目录链接和扩展路径，保留目录边界校验。
+
 使用桌面给出的本机工具管道和每次调用的来源会话身份。直接命令行测试可继承
 CODEX_THREAD_ID；共享 MCP 不能用启动时的固定会话身份代替其他会话。当前仅
 Windows 本机 Codex 聊天，不支持 ChatGPT、远程主机。缺通道或身份则停止。
@@ -56,10 +63,28 @@ The published v0.3.0 round trip included one authorized Sol-only new-chat ACK.
 The 2026-11-13 local development tests also received four external-source
 handoffs in an existing dedicated Codex chat on 0.167.0-alpha.4.1, with exact
 completed ACKs. Those inbound tests used an authorized temporary private
-helper. The managed opt-in is configured but not reloaded in the live host;
-see [current compatibility](COMPATIBILITY.md) for migration and runtime limits.
+helper. The managed opt-in was later loaded for the bounded November 16 QQ test;
+see [current compatibility](COMPATIBILITY.md) for current runtime limits.
 
 v0.3.0 下载回归已做过 Sol 新会话确认。本地开发版后续也在已有专用 Codex
-会话收到四种外部来源交接并准确确认。接收测试使用授权临时桥接，托管开关
-虽已写入，真实宿主尚未重载验收。确认不代表实际工作完成；桌面通道变化后
+会话收到四种外部来源交接并准确确认。当时使用授权临时桥接，11 月 16 日
+另完成托管接收的 QQ 系统时间实测。确认不代表实际工作完成；桌面通道变化后
 的旧回执迁移、项目执行权限和重启后恢复仍不能据此认定通过。
+
+## QQ Relay / QQ 转交
+
+v0.4.1 accepts a trusted local dispatcher with source.application set to
+QQ Bridge followed by its numeric owner identifier, a real UUID conversationId,
+no source.adapter, and a goal beginning with the matching
+`由 QQ <owner> 传达的命令：` label. The label is metadata, not authentication.
+The upstream bridge must authenticate its sender and enforce its own allowlist
+and tool isolation. No QQ credentials, bot installation or transport are bundled.
+
+The dispatcher can target only a different existing desktop chat. It cannot
+create a chat, target its source chat or target the live inbound owner's chat
+(including aliases). The authenticated local bridge capability remains required.
+
+QQ 来源需提供真实会话 UUID、匹配的来源和任务标签，且不冒用桌面 adapter。
+标签不是身份认证；QQ 上游桥接必须独立认证发送者、限制白名单和模型工具。
+本项目不附 QQ 凭据、机器人安装或 QQ 通道。只允许投到另一个已有聊天，
+禁止新建、来源自投递和接收桥所有者自投递；仍需可信本机接收通道能力。

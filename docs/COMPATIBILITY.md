@@ -9,6 +9,15 @@ a guarantee for every installation or future client update.
 本页记录 2026-11-13 的 Windows v0.4.0 验收，旧 v0.3.0 包没有这些改动。
 结果只适用于已测试版本和运行条件，不承诺所有机器或后续版本自动兼容。
 
+v0.4.1 adds a 2026-11-16 local test on Codex 0.169.0-alpha.11.1:
+a separately authenticated QQ dispatcher handed a bounded system-time task to
+an existing desktop chat; the desktop called Get-Date/Get-TimeZone, and the QQ
+bridge reported sending the resulting reply. This is one execution path, not
+a rerun of the five-client matrix or restart-recovery acceptance.
+v0.4.1 新增 11 月 16 日 Codex 0.169.0-alpha.11.1 实测：独立认证的 QQ
+桥接转交已有桌面聊天，桌面读取系统时间，上游 QQ 桥接回传结果。此为单条
+限定执行链路，不是五客户端重新验收，也不证明重启后自动恢复。
+
 ## Direction Matrix / 方向矩阵
 
 Rows are sources, columns are recipients. A means a real completed reply with
@@ -98,15 +107,15 @@ not a copied Codex app-tools pipe or caller identity.
 复制的 Codex 原始通道或来源身份。同一 Windows 用户持有本地能力令牌即可
 访问，不能将此当作密码学宿主认证；本地数据未加密。
 
-**Live migration remains pending:** the 20-direction tests used an explicitly
-authorized temporary standalone Codex inbound helper. The managed opt-in is
-saved with a backup, but the current host has not reloaded it. Managed startup
-now refuses an existing owner or legacy descriptor instead of overwriting it.
-Do not claim restart-independent or fully unattended operation yet.
+**Managed live test added on 2026-11-16:** the earlier 20-direction tests used
+an authorized temporary helper. The later QQ time-query test used a live managed
+owner after explicit host reload. Startup refuses an existing owner or legacy
+descriptor instead of overwriting it. Restart-independent operation remains
+unverified; a second MCP connection cannot take over a live owner's bridge.
 
-**本机迁移仍未完成：**20 方向测试时 Codex 接收使用授权的临时独立桥接。
-托管开关已备份后保存，但当前宿主尚未重载。新实现遇到已有所有者或旧描述
-文件会拒绝启动，绝不覆盖。尚不能宣称重启后自动恢复或完全无人值守。
+**11 月 16 日新增托管实测：**早期 20 方向验收使用临时桥接；后续 QQ 系统
+时间测试已在显式重载宿主后使用托管所有者。遇到已有所有者或旧描述文件仍
+拒绝覆盖，第二个 MCP 连接不能接管。重启自动恢复和完全无人值守尚未验收。
 
 Isolated Windows pipe tests cover duplicate-owner refusal, legacy descriptor
 preservation, disconnect cleanup and fresh reconnection. These do not replace

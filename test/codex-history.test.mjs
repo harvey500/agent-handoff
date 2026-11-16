@@ -26,3 +26,11 @@ test('Codex rollout rejects metadata mismatch and paths outside active sessions'
   const db=new DatabaseSync(path.join(f.home,'state_5.sqlite'));db.prepare('UPDATE threads SET rollout_path = ?').run(outside);db.close();
   assert.throws(()=>delegationRecords(f.home,'thread'),/outside active sessions/);
 });
+test('Codex rollout accepts a Windows junction home and extended-length stored path',{skip:process.platform!=='win32'},t=>{
+  const f=fixture(t),linkedHome=path.join(f.home,'linked-home');
+  fs.symlinkSync(f.home,linkedHome,'junction');
+  f.write([{type:'response_item',payload:{id:'junction-match',type:'function_call_output',namespace:'codex_app',name:'create_thread',output:'packet'}}]);
+  const db=new DatabaseSync(path.join(f.home,'state_5.sqlite'));
+  db.prepare('UPDATE threads SET rollout_path = ?').run(path.toNamespacedPath(f.file));db.close();
+  assert.equal(delegationRecords(linkedHome,'thread')[0].id,'junction-match');
+});

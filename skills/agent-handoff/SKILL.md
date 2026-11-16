@@ -79,12 +79,16 @@ Each source must load and trust its own MCP. Qoder uses an opt-in desktop
 loopback connection, not a separate CLI chat. DSH needs its native opt-in
 Cordis plugin; continue-mode requires executionReady and host approvals.
 External-to-Codex transfer requires an explicitly enabled live inbound owner.
-The managed bridge is designed to close with MCP, but this machine's live
-temporary-helper migration and host restart acceptance are still pending.
+The managed bridge closes with MCP. One bounded QQ-to-desktop time-query
+and result-return test passed after host reload on 2026-11-16; host restart
+recovery and the generalized QQ label path still need separate live acceptance.
 Never claim fully unattended operation from the 20 ACKs. Claude needs a
 restored/unlocked desktop and may take focus. Official Claude cloud profiles
 and other versions are not verified. Copilot and Antigravity are not supported.
 These changes ship in v0.4.0, not the older v0.3.0 package.
+The Codex state, inbound-owner, Windows-path and QQ-label fixes ship in v0.4.1.
+QQ sender authentication and dispatcher tool isolation belong to a separately
+trusted upstream bridge. A task label never proves sender identity.
 The source model must decide to invoke tools. MCP does not grant access to every
 host conversation or register a global message listener.
 

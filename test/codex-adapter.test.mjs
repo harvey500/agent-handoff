@@ -17,8 +17,8 @@ function fixture(t) {
     tools: async () => ['list_threads','read_thread','send_message_to_thread',...(!missingTool ? ['create_thread'] : [])].map(name => ({ name })),
     call: async (name, args) => {
       calls.push({ name, args });
-      if (name === 'list_threads') return { threads: [sourceId,targetId].map(id => ({ id, kind:'codex', hostId:'local', status:'idle', title:'fixture' })), nextCursor:null };
-      if (name === 'read_thread') return { schemaVersion:1, thread:{id:args.threadId,kind:'codex',hostId:'local',title:'fixture',status:{type:state}},
+      if (name === 'list_threads') return { threads: [sourceId,targetId].map(id => ({ id, kind:'codex', hostId:'local', status:state, title:'fixture' })), nextCursor:null };
+      if (name === 'read_thread') return { schemaVersion:1, thread:{id:args.threadId,kind:'codex',hostId:'local',title:'fixture',status:typeof state==='object'?state:{type:state}},
         page:{hasMore:false},turns:args.threadId === targetId ? turns : [] };
       if (name === 'create_thread') return { threadId:randomUUID(),hostId:'local' };
       if (name === 'send_message_to_thread') { if (failSend) throw new Error('lost response'); return { sent:true }; }
@@ -29,8 +29,26 @@ function fixture(t) {
   const adapter = new Codex({store,bridge,home,loadDelegations:()=>records});
   t.after(()=>{store.close();fs.rmSync(home,{recursive:true,force:true});});
   return {adapter,store,sourceId,targetId,calls,turns,
-    records:value=>{records=value;}, busy:()=>{state='active';}, missing:()=>{missingTool=true;}, fail:()=>{failSend=true;} };
+    records:value=>{records=value;}, state:value=>{state=value;}, busy:()=>{state='active';}, missing:()=>{missingTool=true;}, fail:()=>{failSend=true;} };
 }
+test('Codex permits an unloaded chat and blocks active, errored or unknown states',async t=>{
+  const f=fixture(t);
+  f.state('notLoaded');
+  assert.equal((await f.adapter.read(f.targetId)).state,'idle');
+  const marker='HANDOFF_ID: '+randomUUID();
+  await f.adapter.send(f.targetId,marker,marker,f.adapter.accountId,true);
+  assert.equal(f.calls.filter(c=>c.name==='send_message_to_thread').length,1);
+  for(const state of ['idle',{type:'idle'},'notLoaded',{type:'notLoaded'}]){
+    f.state(state);
+    assert.equal((await f.adapter.list()).items.find(row=>row.id===f.targetId).state,'idle');
+    assert.equal((await f.adapter.read(f.targetId)).state,'idle');
+  }
+  for(const state of ['active','systemError',undefined,'futureState']){
+    f.state(state);
+    assert.equal((await f.adapter.list()).items.find(row=>row.id===f.targetId).state,state==='active'?'busy':'unknown');
+    await assert.rejects(f.adapter.send(f.targetId,'HANDOFF_ID: '+randomUUID(),'HANDOFF_ID: '+randomUUID(),f.adapter.accountId,true),/busy|unknown/);
+  }
+});
 test('Codex new chat sends full packet once and explicitly selects Sol',async t=>{
   const f=fixture(t),id=randomUUID(),marker='HANDOFF_ID: '+randomUUID(),text=marker+String.fromCharCode(10)+'context';
   await f.adapter.create(id,{title:'test',projectPath:os.tmpdir(),source:{application:'Codex',conversationId:f.sourceId}},f.adapter.accountId);

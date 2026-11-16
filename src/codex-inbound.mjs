@@ -15,12 +15,22 @@ export function inboundOperations(adapter, store) {
   const key = 'codex-inbound:';
   return async (operation, args = {}) => {
     if (operation === 'status') return { ...await adapter.status(), support: 'opt-in-codex-inbound' };
-    if (operation === 'list') return adapter.list();
+    if (operation === 'list') {
+      const catalog = await adapter.list();
+      const ownerId = adapter.bridge?.sourceId;
+      const items = catalog.items.filter(row => row.id !== ownerId && row.nativeId !== ownerId);
+      return { ...catalog, items, total: items.length };
+    }
     if (operation === 'authorize') {
       const { id, createdAt, updatedAt, ...input } = args.task;
       const task = { ...validateTaskInput(input), id };
       sourceAdapter(task.source);
-      if (!uuid(task.id) || !path.isAbsolute(task.projectPath) || !['workbuddy','claude','qoder','deepseek'].includes(task.source.adapter)) throw new Error('A real external source task is required.');
+      const qqOwner = /^QQ Bridge ([1-9][0-9]{4,11})$/.exec(task.source.application)?.[1];
+      // Sender authentication belongs to the trusted local QQ bridge, not this label.
+      const qqDispatcher = !!qqOwner && !task.source.adapter && uuid(task.source.conversationId) && task.goal.startsWith(`由 QQ ${qqOwner} 传达的命令：`);
+      if (!uuid(task.id) || !path.isAbsolute(task.projectPath) || (!qqDispatcher && !['workbuddy','claude','qoder','deepseek'].includes(task.source.adapter))) throw new Error('A real external source task is required.');
+      if (qqDispatcher && (args.createNew || args.conversationId === task.source.conversationId)) throw new Error('QQ dispatcher must target a different existing desktop conversation.');
+      if (adapter.bridge?.sourceId && args.conversationId && adapter.native?.(args.conversationId) === adapter.bridge.sourceId) throw new Error('Inbound owner cannot receive its own handoff; select a different existing chat.');
       if (!args.createNew && !uuid(args.conversationId)) throw new Error('Explicit target is required.');
       const record = { task, createNew: args.createNew === true, conversationId: args.conversationId };
       const prior = store.get('settings', key + 'task:' + task.id);

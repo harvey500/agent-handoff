@@ -7,7 +7,7 @@ export function delegationRecords(home, threadId) {
   try { row = db.prepare('SELECT rollout_path FROM threads WHERE id = ? AND archived = 0').get(threadId); }
   finally { db.close(); }
   if (!row) throw new Error('Codex thread rollout unavailable.');
-  const root = fs.realpathSync(path.join(home, 'sessions')), file = fs.realpathSync(row.rollout_path);
+  const root = fs.realpathSync.native(path.join(home, 'sessions')), file = fs.realpathSync.native(row.rollout_path);
   const relative = path.relative(root, file);
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Codex rollout is outside active sessions.');
   const fd = fs.openSync(file, 'r');

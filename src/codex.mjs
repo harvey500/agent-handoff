@@ -6,6 +6,10 @@ import { CodexPipe } from './codex-pipe.mjs';
 import { delegationRecords } from './codex-history.mjs';
 const hash = text => createHash('sha256').update(text).digest('hex');
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const threadState = status => {
+  const value = typeof status === 'string' ? status : status?.type;
+  return ['idle','notLoaded'].includes(value) ? 'idle' : value === 'active' ? 'busy' : 'unknown';
+};
 export class Codex {
   constructor({ store, bridge, loadDelegations = delegationRecords, home = process.env.CODEX_HOME || path.join(os.homedir(), '.codex') }) {
     this.store = store; this.bridge = bridge || new CodexPipe();
@@ -49,7 +53,7 @@ export class Codex {
     return { total: unique.length, truncated, items: unique.map(row => ({
       id: this.store.get('settings', this.prefix + 'native:' + row.id)?.logicalId || row.id,
       nativeId: row.id, title: row.title || 'Codex chat', projectPath: row.cwd,
-      state: row.status === 'idle' ? 'idle' : 'busy', transport: 'codex-app-tools',
+      state: threadState(row.status), transport: 'codex-app-tools',
     })) };
   }
   async create(id, task, accountId) {
@@ -106,7 +110,7 @@ export class Codex {
         assistantMessage: { content: reply ? [{ type: 'text', text: reply.text }] : [] } };
     });
     return { id, nativeId, title: result.thread.title, projectPath: result.thread.cwd,
-      state: result.thread.status?.type === 'idle' ? 'idle' : 'busy', requests, hasOlder: !!result.page?.hasMore };
+      state: threadState(result.thread.status), requests, hasOlder: !!result.page?.hasMore };
   }
   async send(id, text, marker, accountId, freshOnce = false) {
     await this.check(accountId);

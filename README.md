@@ -2,20 +2,32 @@
 
 现有 Agent 内的自然语言任务交接功能 · Natural-language handoff inside existing agents
 
-**0.4.0 · 实验预览版 / Experimental Preview**
+**0.4.1 · 实验预览版 / Experimental Preview**
+
+2026-11-16：修复 Codex 未加载会话状态、入站所有者排除和 Windows 历史
+路径解析，并支持可信本机 QQ 桥接向已有桌面聊天转交。已完成一次 QQ →
+桌面读取系统时间 → QQ 回传的限定实测；不包含 QQ 机器人安装或账号认证，
+也不代表重启后自动恢复。见 [0.4.1 更新说明](docs/RELEASE-0.4.1.md)。
+
+2026-11-16: fixes Codex unloaded-chat state handling, inbound-owner exclusion
+and Windows rollout paths. A trusted local QQ bridge can target an existing
+desktop chat. One bounded QQ-to-desktop time query and QQ result return passed;
+QQ installation/authentication and restart recovery are not included guarantees.
+See [v0.4.1 release notes](docs/RELEASE-0.4.1.md).
 
 2026-11-13 本地验收已取得 Codex、WorkBuddy、Claude 网关、Qoder、DSH
 五个客户端全部 20 个跨客户端方向的真实确认。四种外部来源客户端已分别
 通过各自加载的 MCP 发起测试，不靠 Codex 代跑脚本。确认不等于任务完成，
-也不等于重启后无人值守。Claude 仍要求非最小化、未锁屏；Codex 接收测试
-仍使用临时桥接，托管迁移待重载验收。详见
+也不等于重启后无人值守。Claude 仍要求非最小化、未锁屏；当时 Codex 接收
+使用临时桥接。11 月 16 日新增托管接收实测，但重启恢复仍未验收。详见
 [兼容性与方向验证 / Compatibility](docs/COMPATIBILITY.md)。
 
 This build has local ACK evidence for all 20 cross-client
 directions among five clients. External source hosts invoked their own loaded
 MCP tools. ACK is not task completion or unattended restart readiness. Claude
-needs a restored, unlocked desktop; Codex inbound still uses a temporary helper
-pending managed-owner migration. These changes are included in v0.4.0, not the
+needs a restored, unlocked desktop; those Codex inbound tests used a temporary
+helper. A managed inbound test was added on November 16; restart recovery is
+still unverified. The five-client changes are included in v0.4.0, not the
 older v0.3.0 ZIP. Read the runtime requirements before enabling a recipient.
 
 适合开发者试用和贡献适配器，暂不承诺稳定版兼容性。建议先用不含敏感资料的

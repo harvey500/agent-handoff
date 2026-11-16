@@ -1,6 +1,6 @@
 {
   "name": "agent-handoff-local",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Natural-language task handoff through existing agent conversations, with MCP adapters and durable receipts.",
   "license": "MIT",

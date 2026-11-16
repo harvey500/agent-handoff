@@ -23,6 +23,14 @@ of the supported workflow.
 脱敏。本机 HTTP/CDP 端点不得映射公网。支持流程不包含修改客户端安装包、
 绕过认证或调试保护。
 
+QQ dispatcher labels are not authentication. The optional local relay accepts
+only existing-chat grants through the authenticated private bridge; the QQ
+transport must independently authenticate senders, apply an allowlist and keep
+its model from directly accessing desktop tools. The local bridge token is a
+capability for the trusted OS user, not proof of a QQ account or remote identity.
+QQ 来源标签不代表认证。上游需独立认证发送者、限制白名单及模型工具权限。
+本机接收令牌是可信系统用户的能力，不是 QQ 账号或远程身份的认证证明。
+
 ## Reporting / 报告方式
 
 Use GitHub's private vulnerability reporting when enabled for this repository.
